@@ -25,7 +25,7 @@ export function ChunkField({
     <Field key={index} className="border border-gray-200 rounded-lg p-4">
       <Textarea
         className="resize-none"
-        placeholder={`Descreva seu chunk (máx. ${CHUNK_LIMIT} caracteres)`}
+        placeholder={`Descreva seu bloco (máx. ${CHUNK_LIMIT} caracteres)`}
         value={chunk}
         maxLength={CHUNK_LIMIT}
         onBlur={() => onBlur()}

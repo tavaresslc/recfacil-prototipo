@@ -7,18 +7,16 @@ import { UFS } from "@/constants/ufs";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useProfileFormStore } from "@/lib/store/profile-form-store";
 import {
-  AlertCircle,
-  AlertTriangle,
   Briefcase,
-  Check,
   IdCard,
   Link,
   Mail,
   Map,
   Plus,
   Smartphone,
+  SquareText,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCitiesByUf } from "@/hooks/use-cities-by-uf";
 import { maskPhone, getInitialsOrFallback } from "@/lib/utils";
 import {
@@ -32,6 +30,8 @@ import { ChunkField } from "@/components/profile/fields/chunk-field";
 import { AlertModal } from "@/components/shared/alert-modal";
 import { useBlocker } from "react-router-dom";
 import linkedinIcon from "@/assets/linkedin.svg";
+import { FIELD_ORDER } from "@/constants/fields";
+import { Indicator } from "@/components/shared/indicator/indicator";
 
 export default function Profile() {
   const { user: authUser } = useAuthStore();
@@ -119,6 +119,81 @@ export default function Profile() {
     !errors.linkedin &&
     !errors.portfolio &&
     !errors.chunks;
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const [offscreenError, setOffscreenError] = useState<{
+    above: FieldName | null;
+    below: FieldName | null;
+  }>({ above: null, below: null });
+
+  const errorFields = useMemo(
+    () => FIELD_ORDER.filter((f) => !!errors[f]),
+    [errors],
+  );
+
+  const updateOffscreenErrors = useCallback(() => {
+    const container = formRef.current;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    let above: FieldName | null = null;
+    let below: FieldName | null = null;
+
+    for (const field of errorFields) {
+      const el = container.querySelector<HTMLElement>(
+        `[data-field="${field}"]`,
+      );
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+
+      if (rect.bottom <= containerRect.top + 10) {
+        above = field;
+      } else if (rect.top >= containerRect.bottom - 10) {
+        if (!below) below = field;
+      }
+    }
+
+    setOffscreenError((prev) =>
+      prev.above === above && prev.below === below ? prev : { above, below },
+    );
+  }, [errorFields]);
+
+  useEffect(() => {
+    const container = formRef.current;
+    if (!container) return;
+
+    updateOffscreenErrors();
+
+    container.addEventListener("scroll", updateOffscreenErrors, {
+      passive: true,
+    });
+    window.addEventListener("resize", updateOffscreenErrors);
+
+    const resizeObserver = new ResizeObserver(updateOffscreenErrors);
+    resizeObserver.observe(container);
+    Array.from(container.children).forEach((child) =>
+      resizeObserver.observe(child),
+    );
+
+    return () => {
+      container.removeEventListener("scroll", updateOffscreenErrors);
+      window.removeEventListener("resize", updateOffscreenErrors);
+      resizeObserver.disconnect();
+    };
+  }, [updateOffscreenErrors]);
+
+  const scrollToField = (field: FieldName) => {
+    const el = formRef.current?.querySelector<HTMLElement>(
+      `[data-field="${field}"]`,
+    );
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.querySelector<HTMLElement>("input, button, textarea")?.focus({
+      preventScroll: true,
+    });
+  };
 
   const handleChange = (field: FieldName, value: string | string[]) => {
     if (field === "phone") value = maskPhone(value as string);
@@ -211,220 +286,266 @@ export default function Profile() {
 
   return (
     <RequireAuth>
-      <form
-        autoComplete="off"
-        onSubmit={(e) => e.preventDefault()}
-        noValidate
-        className="flex flex-col items-center flex-1 overflow-y-auto bg-gray-50 p-2 md:p-6 space-y-6"
-      >
-        <div className="md:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 select-none">
-          <div className="flex md:flex-row flex-col items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Informações pessoais
-            </h2>
-            {Object.values(errors).find((error) => error !== null) && (
-              <span className="text-sm text-red-600 flex items-center gap-1">
-                <AlertCircle className="size-4" /> Existem erros no formulário
-              </span>
-            )}
-            {hasChanges &&
-              !Object.values(errors).find((error) => error !== null) && (
-                <span className="text-sm text-amber-600 flex items-center gap-1">
-                  <AlertTriangle className="size-4" /> Alterações não salvas
-                </span>
-              )}
-            {submitted && (
-              <span className="text-sm text-emerald-600 flex items-center gap-1">
-                <Check className="size-4" /> Salvo com sucesso
-              </span>
-            )}
-          </div>
+      <div className="relative flex flex-1 min-h-0 flex-col">
+        {offscreenError.above && (
+          <Indicator
+            direction="up"
+            field={offscreenError.above}
+            message={errors[offscreenError.above]}
+            onClick={() => scrollToField(offscreenError.above!)}
+            type="error"
+          />
+        )}
 
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex flex-col items-center">
-              <Avatar className="size-32 shrink-0 mb-3 shadow-sm border-4 border-white">
-                <AvatarImage src={user.picture} />
-                <AvatarFallback className="bg-gray-200 text-gray-500 text-5xl font-semibold">
-                  {getInitialsOrFallback(user.name)}
-                </AvatarFallback>
-              </Avatar>
-            </div>
+        {offscreenError.below && (
+          <Indicator
+            direction="down"
+            field={offscreenError.below}
+            message={errors[offscreenError.below]}
+            onClick={() => scrollToField(offscreenError.below!)}
+            type="error"
+          />
+        )}
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <TextField
-                label="Nome Completo"
-                icon={<IdCard className="size-4" />}
-                placeholder="Digite seu nome completo"
-                value={user.name}
-                required
-                maxLength={80}
-                error={errors.name}
-                touched={isTouched("name")}
-                onChange={(v) => handleChange("name", v)}
-                onBlur={() => handleBlur("name")}
-                disabled={submitting}
-              />
+        {submitted && (
+          <Indicator
+            direction="up"
+            field="name"
+            message="Salvo com sucesso"
+            type="success"
+          />
+        )}
 
-              <TextField
-                label="Cargo/Título"
-                icon={<Briefcase className="size-4" />}
-                placeholder="Digite seu cargo/título"
-                value={user.title}
-                required
-                maxLength={60}
-                error={errors.title}
-                touched={isTouched("title")}
-                onChange={(v) => handleChange("title", v)}
-                onBlur={() => handleBlur("title")}
-                disabled={submitting}
-              />
+        {hasChanges && !Object.values(errors).find((error) => error !== null) && (
+          <Indicator
+            direction="up"
+            field="name"
+            message="Você tem alterações não salvas"
+            type="warning"
+          />
+        )}
 
-              <TextField
-                label="Email"
-                icon={<Mail className="size-4" />}
-                placeholder="Digite seu email"
-                value={user.email}
-                required
-                disabled
-                hint="Vinculado à sua conta, não pode ser alterado aqui."
-                error={errors.email}
-                touched={isTouched("email")}
-                onChange={(v) => handleChange("email", v)}
-                onBlur={() => handleBlur("email")}
-              />
-
-              <TextField
-                label="Telefone"
-                icon={
-                  <>
-                    <Smartphone className="size-4" /> +55
-                  </>
-                }
-                placeholder="(00) 00000-0000"
-                value={user.phone}
-                optional
-                inputMode="numeric"
-                error={errors.phone}
-                touched={isTouched("phone")}
-                onChange={(v) => handleChange("phone", v)}
-                onBlur={() => handleBlur("phone")}
-                disabled={submitting}
-              />
-
-              <SelectField
-                label="Estado"
-                icon={<Map className="size-4" />}
-                placeholder="Selecione um estado"
-                groupLabel="Estados"
-                value={user.state}
-                options={UFS?.map((uf) => ({
-                  value: uf.value,
-                  label: uf.label,
-                }))}
-                required
-                error={errors.state}
-                touched={isTouched("state")}
-                onChange={(v) => handleChange("state", v)}
-                onBlur={() => handleBlur("state")}
-                disabled={submitting}
-              />
-
-              <CityComboboxField
-                value={user.city}
-                items={cities}
-                disabled={!user.state || submitting}
-                loading={loadingCities}
-                loadError={citiesError}
-                error={errors.city}
-                touched={isTouched("city")}
-                onChange={(v) => {
-                  handleChange("city", v);
-                  handleBlur("city");
-                }}
-                onBlur={() => handleBlur("city")}
-              />
-
-              <TextField
-                label="LinkedIn"
-                icon={
-                  <img src={linkedinIcon} alt="LinkedIn" className="w-4 h-4" />
-                }
-                placeholder="https://linkedin.com/in/seu-perfil"
-                value={user.linkedin}
-                optional
-                error={errors.linkedin}
-                touched={isTouched("linkedin")}
-                onChange={(v) => handleChange("linkedin", v)}
-                onBlur={() => handleBlur("linkedin")}
-                disabled={submitting}
-              />
-
-              <TextField
-                label="Portfólio/Website"
-                icon={<Link className="size-4" />}
-                placeholder="https://seuportfolio.com"
-                value={user.portfolio}
-                optional
-                error={errors.portfolio}
-                touched={isTouched("portfolio")}
-                onChange={(v) => handleChange("portfolio", v)}
-                onBlur={() => handleBlur("portfolio")}
-                disabled={submitting}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="md:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
-          <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-6 text-center md:text-start select-none">
-            <div>
+        <form
+          ref={formRef}
+          autoComplete="off"
+          onSubmit={(e) => e.preventDefault()}
+          noValidate
+          className="flex flex-col items-center flex-1 overflow-y-auto bg-gray-50 p-2 md:p-6 space-y-6"
+        >
+          <div className="md:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 select-none">
+            <div className="flex md:flex-row flex-col items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">
-                Chunks de informacão
+                Informações pessoais
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Adicione chunks descrevendo sua experiência, habilidades ou
-                qualquer informação relevante.
-              </p>
-              <div className="h-5 mt-1">
-                {errors.chunks && (
-                  <p className="text-sm text-red-600">{errors.chunks}</p>
-                )}
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6">
+              <div className="flex flex-col items-center">
+                <Avatar className="size-32 shrink-0 mb-3 shadow-sm border-4 border-white">
+                  <AvatarImage src={user.picture} />
+                  <AvatarFallback className="bg-gray-200 text-gray-500 text-5xl font-semibold">
+                    {getInitialsOrFallback(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div data-field="name">
+                  <TextField
+                    label="Nome Completo"
+                    icon={<IdCard className="size-4" />}
+                    placeholder="Digite seu nome completo"
+                    value={user.name}
+                    required
+                    maxLength={80}
+                    error={errors.name}
+                    touched={isTouched("name")}
+                    onChange={(v) => handleChange("name", v)}
+                    onBlur={() => handleBlur("name")}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div data-field="title">
+                  <TextField
+                    label="Cargo/Título"
+                    icon={<Briefcase className="size-4" />}
+                    placeholder="Digite seu cargo/título"
+                    value={user.title}
+                    required
+                    maxLength={60}
+                    error={errors.title}
+                    touched={isTouched("title")}
+                    onChange={(v) => handleChange("title", v)}
+                    onBlur={() => handleBlur("title")}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div data-field="email">
+                  <TextField
+                    label="Email"
+                    icon={<Mail className="size-4" />}
+                    placeholder="Digite seu email"
+                    value={user.email}
+                    required
+                    disabled
+                    hint="Vinculado à sua conta, não pode ser alterado aqui."
+                    error={errors.email}
+                    touched={isTouched("email")}
+                    onChange={(v) => handleChange("email", v)}
+                    onBlur={() => handleBlur("email")}
+                  />
+                </div>
+
+                <div data-field="phone">
+                  <TextField
+                    label="Telefone"
+                    icon={
+                      <>
+                        <Smartphone className="size-4" /> +55
+                      </>
+                    }
+                    placeholder="(00) 00000-0000"
+                    value={user.phone}
+                    optional
+                    inputMode="numeric"
+                    error={errors.phone}
+                    touched={isTouched("phone")}
+                    onChange={(v) => handleChange("phone", v)}
+                    onBlur={() => handleBlur("phone")}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div data-field="state">
+                  <SelectField
+                    label="Estado"
+                    icon={<Map className="size-4" />}
+                    placeholder="Selecione um estado"
+                    groupLabel="Estados"
+                    value={user.state}
+                    options={UFS?.map((uf) => ({
+                      value: uf.value,
+                      label: uf.label,
+                    }))}
+                    required
+                    error={errors.state}
+                    touched={isTouched("state")}
+                    onChange={(v) => handleChange("state", v)}
+                    onBlur={() => handleBlur("state")}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div data-field="city">
+                  <CityComboboxField
+                    value={user.city}
+                    items={cities}
+                    disabled={!user.state || submitting}
+                    loading={loadingCities}
+                    loadError={citiesError}
+                    error={errors.city}
+                    touched={isTouched("city")}
+                    onChange={(v) => {
+                      handleChange("city", v);
+                      handleBlur("city");
+                    }}
+                    onBlur={() => handleBlur("city")}
+                  />
+                </div>
+
+                <div data-field="linkedin">
+                  <TextField
+                    label="LinkedIn"
+                    icon={
+                      <img
+                        src={linkedinIcon}
+                        alt="LinkedIn"
+                        className="w-4 h-4"
+                      />
+                    }
+                    placeholder="https://linkedin.com/in/seu-perfil"
+                    value={user.linkedin}
+                    optional
+                    error={errors.linkedin}
+                    touched={isTouched("linkedin")}
+                    onChange={(v) => handleChange("linkedin", v)}
+                    onBlur={() => handleBlur("linkedin")}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div data-field="portfolio">
+                  <TextField
+                    label="Portfólio/Website"
+                    icon={<Link className="size-4" />}
+                    placeholder="https://seuportfolio.com"
+                    value={user.portfolio}
+                    optional
+                    error={errors.portfolio}
+                    touched={isTouched("portfolio")}
+                    onChange={(v) => handleChange("portfolio", v)}
+                    onBlur={() => handleBlur("portfolio")}
+                    disabled={submitting}
+                  />
+                </div>
               </div>
             </div>
-            <Button
-              type="button"
-              className="flex items-center gap-2 px-4 py-2 bg-linear-to-br from-blue-600 to-purple-600 text-gray-50 rounded-lg transition-colors"
-              onClick={(e) => {
-                e.preventDefault();
+          </div>
+          <div className="md:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-6 text-center md:text-start select-none">
+              <div data-field="chunks">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Blocos de informacão
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Adicione blocos descrevendo sua experiência, habilidades ou
+                  qualquer informação relevante.
+                </p>
+                <div className="h-5 mt-1">
+                  {errors.chunks && (
+                    <p className="text-sm text-red-600">{errors.chunks}</p>
+                  )}
+                </div>
+              </div>
+              <Button
+                type="button"
+                className="flex items-center gap-2 px-4 py-2 bg-linear-to-br from-blue-600 to-purple-600 text-gray-50 rounded-lg transition-colors"
+                onClick={(e) => {
+                  e.preventDefault();
 
-                handleChange("chunks", [...user.chunks, ""]);
-              }}
-              disabled={submitting}
-            >
-              <Plus className="size-4" />
-              <span>Adicionar Chunk</span>
-            </Button>
+                  handleChange("chunks", [...user.chunks, ""]);
+                }}
+                disabled={submitting}
+              >
+                <Plus className="size-4" />
+                <span>Adicionar bloco</span>
+              </Button>
+            </div>
+            <div className="space-y-4 select-none">
+              {user.chunks.length === 0 ? (
+                <p className="flex flex-col items-center justify-center text-sm text-gray-400 text-center py-6">
+                  <SquareText className="size-7 mb-3" />
+                  Nenhum bloco adicionado ainda.
+                </p>
+              ) : (
+                user.chunks.map((chunk, index) => (
+                  <ChunkField
+                    key={index}
+                    index={index}
+                    chunk={chunk}
+                    chunks={user.chunks}
+                    onChange={(newChunks) => handleChange("chunks", newChunks)}
+                    onBlur={() => handleBlur("chunks")}
+                    disabled={submitting}
+                  />
+                ))
+              )}
+            </div>
           </div>
-          <div className="space-y-4 select-none">
-            {user.chunks.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">
-                Nenhum chunk adicionado ainda.
-              </p>
-            ) : (
-              user.chunks.map((chunk, index) => (
-                <ChunkField
-                  key={index}
-                  index={index}
-                  chunk={chunk}
-                  chunks={user.chunks}
-                  onChange={(newChunks) => handleChange("chunks", newChunks)}
-                  onBlur={() => handleBlur("chunks")}
-                  disabled={submitting}
-                />
-              ))
-            )}
-          </div>
-        </div>
-      </form>
+        </form>
+      </div>
       <AlertModal
         isOpen={blocker.state === "blocked"}
         onClose={handleCancelLeave}

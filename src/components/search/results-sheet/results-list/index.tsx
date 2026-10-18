@@ -18,7 +18,7 @@ export function ResultsList({
 }: ResultsListProps) {
   return (
     <aside
-      className={`${selectedResult ? "hidden sm:flex" : "flex"} flex-col h-full w-full sm:w-1/3 sm:max-w-sm shrink-0 bg-white shadow-md sm:border-r border-gray-200 overflow-hidden`}
+      className={`${selectedResult ? "hidden sm:flex" : "flex"} flex-col h-full w-full sm:w-1/3 sm:max-w-md shrink-0 bg-white shadow-md sm:border-r border-gray-200 overflow-hidden`}
     >
       <div className="flex items-center justify-between py-3 px-4 border-b border-gray-100 select-none">
         <span className="text-sm font-semibold text-gray-700 ">

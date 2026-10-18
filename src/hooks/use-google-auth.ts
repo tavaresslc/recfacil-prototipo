@@ -50,10 +50,9 @@ export function useGoogleAuth() {
   if (IS_PROTOTIPO) {
     return () => {
       login({
-        name: "Usuário de Teste",
+        name: "Usuário Teste",
         email: "teste@example.com",
-        picture:
-          "https://randomuser.me/api/portraits/men/75.jpg",
+        picture: "",
         title: "",
         phone: "",
         city: "",

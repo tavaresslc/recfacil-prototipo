@@ -66,6 +66,7 @@ export function CityComboboxField({
           className={
             showError ? "border-red-400 focus-visible:ring-red-300" : ""
           }
+          placeholderDestructive={loadError !== null}
         >
           <InputGroupAddon>
             {loading ? (
@@ -76,7 +77,7 @@ export function CityComboboxField({
           </InputGroupAddon>
         </ComboboxInput>
         <ComboboxContent>
-          <ComboboxEmpty>
+          <ComboboxEmpty className={loadError ? "text-red-400" : ""}>
             {loadError ? loadError : "Nenhuma cidade encontrada."}
           </ComboboxEmpty>
           <ComboboxList>

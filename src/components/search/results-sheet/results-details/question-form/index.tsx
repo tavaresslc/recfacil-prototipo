@@ -138,7 +138,7 @@ export function QuestionForm({ result, authenticated }: QuestionFormProps) {
 
               <InputGroupAddon align="inline-end">
                 <span className="text-sm text-gray-500">
-                  {query.length} / {SEARCH_FORM_LIMIT}
+                  {authenticated ? query.length : 0} / {SEARCH_FORM_LIMIT}
                 </span>
               </InputGroupAddon>
             </InputGroup>

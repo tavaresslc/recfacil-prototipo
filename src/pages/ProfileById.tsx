@@ -97,7 +97,7 @@ export default function ProfileById() {
                     >
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <span className="text-xs font-medium text-gray-500 select-none">
-                          Chunk {index + 1}
+                          Bloco {index + 1}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 leading-7">

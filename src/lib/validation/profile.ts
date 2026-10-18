@@ -63,17 +63,17 @@ export function validateField(field: FieldName, value: string): string | null {
 
 export function validateChunks(chunks: string[]): string | null {
   if (!chunks || chunks.length === 0) {
-    return "Adicione pelo menos um chunk";
+    return "Adicione pelo menos um bloco";
   }
 
   const trimmedChunks = chunks.map(c => c.trim());
 
   if (trimmedChunks.some((c) => !c)) {
-    return "Remova ou preencha os chunks vazios";
+    return "Remova ou preencha os blocos vazios";
   }
 
   if (trimmedChunks.some((c) => c.length > CHUNK_LIMIT)) {
-    return `Cada chunk deve ter no máximo ${CHUNK_LIMIT} caracteres`;
+    return `Cada bloco deve ter no máximo ${CHUNK_LIMIT} caracteres`;
   }
 
   if (trimmedChunks.some((c) => c.split(/\s+/).length < 3)) {

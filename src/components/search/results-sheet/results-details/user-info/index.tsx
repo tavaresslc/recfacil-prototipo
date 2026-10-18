@@ -96,7 +96,7 @@ export function UserInfo({
       </div>
       <div className="flex flex-col gap-1 mt-4">
         <h3 className="text-normal font-semibold text-gray-600 ml-2 select-none">
-          Chunk mais relevante
+          Bloco mais relevante
         </h3>
         <p className="text-sm text-gray-600 leading-relaxed bg-gray-100 rounded-xl px-4 py-3">
           {result.chunks[0].content}
